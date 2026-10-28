@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Build command isn't needed when using go run as entrypoint
+cmd = "go build -o ./tmp/api.exe ./cmd/api"
+# Use go run directly as entrypoint
+entrypoint = "go run ./cmd/api"
+delay = 300
+exclude_dir = ["tmp", "vendor"]
+exclude_regex = ["_test.go"]
+
+[log]
+time = true

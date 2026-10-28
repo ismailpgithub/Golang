@@ -1,0 +1,69 @@
+package auth
+
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+)
+
+type Claims struct {
+	jwt.RegisteredClaims
+	Role string `json:"role"`
+}
+
+func CreateToken(jwtSecret string, userId string, role string) (string, error) {
+	now := time.Now().UTC()
+	exp := now.Add(7 * 24 * time.Hour)
+
+	claims := Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userId,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(exp),
+		},
+		Role: role,
+	}
+
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	signed, err := tok.SignedString([]byte(jwtSecret))
+
+	if err != nil {
+		return "", fmt.Errorf("sign token failed: %w", err)
+	}
+
+	return signed, nil
+
+}
+
+func ParseToken(jwtSecret string, tokenString string) (Claims, error) {
+	var claims Claims
+
+	parsed, err := jwt.ParseWithClaims(tokenString, &claims,
+		func(t *jwt.Token) (interface{}, error) {
+			// Verify signing algorithm is HMAC
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
+			return []byte(jwtSecret), nil
+		},
+		// Allow HS256 algorithm
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+	)
+
+	if err != nil {
+		return Claims{}, fmt.Errorf("parse token failed: %w", err)
+	}
+
+	if !parsed.Valid {
+		return Claims{}, errors.New("invalid token")
+	}
+
+	if claims.Subject == "" {
+		return Claims{}, errors.New("token missing subject")
+	}
+
+	return claims, nil
+}
